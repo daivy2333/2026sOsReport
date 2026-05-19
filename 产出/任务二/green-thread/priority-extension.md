@@ -90,6 +90,33 @@ THREAD 1 FINISHED    // 低优先级线程最后完成
 - 低优先级（0）线程在所有更高优先级线程完成后才得到执行。
 - 优先级越高，获得 CPU 时间的机会越多。
 
+## 测例覆盖
+
+优先级机制的验证通过 **10 个单元测试 + 3 个集成测试** 自动化保障，运行方式：
+
+```bash
+cargo test --bin green-thread  # 仅单元测试（10 个）
+cargo test --test priority_scheduling  # 仅集成测试（3 个）
+cargo test --bin green-thread --test priority_scheduling  # 全部 13 个
+```
+
+### 单元测试（src/main.rs）
+
+| 测试组 | 测例数 | 验证内容 |
+|--------|--------|---------|
+| 优先级选择 | 4 | `find_highest_priority_ready` 在不同分布下返回正确的最高优先级线程；Running 线程不被选中；无 Ready 线程时返回 None |
+| Spawn 接口 | 3 | `spawn_with_priority` 正确设置优先级和状态；`spawn` 默认优先级为 0；线程槽位耗尽时 panic |
+| 初始状态 | 2 | Runtime 构造后各线程的初始状态和优先级正确 |
+| 构造检查 | 1 | Thread::new 的正确性 |
+
+### 集成测试（tests/priority_scheduling.rs）
+
+| 测例 | 验证内容 |
+|------|---------|
+| `test_priority_completion_order` | 端到端运行，断言执行顺序必须为优先级从高到低（prio=2 → prio=1 → prio=0） |
+| `test_priority_scheduling_trace_in_output` | 输出包含关键调度信息（"selecting Thread 3"、"All threads completed"） |
+| `test_spawn_trace_shows_priority` | 输出包含各优先级的 spawn 记录 |
+
 ## 局限性
 
 1. 当前实现是**协作式**优先级，而非抢占式——线程必须主动调用 `yield_thread()` 才能让出 CPU。一个不 yield 的高优先级线程会无限占用 CPU。

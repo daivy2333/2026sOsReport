@@ -30,6 +30,22 @@ pub fn spawn_with_priority(&mut self, f: fn(), priority: u8);
 
 在调度器关键点插入带微秒级时间戳的 trace 日志，可完整观察每个绿色线程的 `Available → Ready → Running → Available` 状态变迁过程。实测 trace 分析见 [执行流状态变迁分析.md](../docs/执行流状态变迁分析.md)。
 
+## 测试
+
+```bash
+# 单元测试（调度器逻辑、优先级选择、状态管理）
+cargo test --bin green-thread
+
+# 集成测试（端到端验证优先级调度顺序）
+cargo test --test priority_scheduling
+
+# 全部测试
+cargo test --bin green-thread --test priority_scheduling
+```
+
+所有 13 个测试自动验证优先级机制的正确性。
+项目使用 stable Rust（无需 nightly），测试不依赖任何外部模拟器。
+
 ## 架构支持
 
 | 架构 | 测试方式 | 工具链要求 |
@@ -97,11 +113,11 @@ cargo run
 
 在 Windows 上编译时自动使用 `win64.rs` 中的线程上下文实现（包含 TIB 保存/恢复）。
 
-### 遗留示例
+### 遗留示例（仅参考，不可编译）
 
-`examples/` 目录下的两个文件是代码演进过程中的历史版本，**仅作参考，不保证与当前版本功能一致**：
+`examples-archive/` 目录下的两个文件是代码演进过程中的历史版本，**仅作参考，不保证与当前版本功能一致**。因使用已废弃的 Rust 语法，它们不会被编译：
 
-- **`examples/updated.rs`** — 原作者 cfsamson 于 2022 年发布的更新版。修复了部分兼容性问题，但仍需 nightly 工具链（`#![feature(naked_functions)]`），使用旧的 `asm!` 宏语法。支持 Linux 和 Windows。
-- **`examples/linux-only.rs`** — 训练营参与者基于更早期的代码修改的版本。将 `#[naked]` 替换为纯汇编写法，可在 stable Rust 上运行，但仅支持 Linux。栈大小改为 4KB 并增加了栈使用量统计。
+- **`examples-archive/updated.rs`** — 原作者 cfsamson 于 2022 年发布的更新版。修复了部分兼容性问题，但仍需 nightly 工具链（`#![feature(naked_functions)]`），使用旧的 `asm!` 宏语法。支持 Linux 和 Windows。
+- **`examples-archive/linux-only.rs`** — 训练营参与者基于更早期的代码修改的版本。将 `#[naked]` 替换为纯汇编写法，可在 stable Rust 上运行，但仅支持 Linux。栈大小改为 4KB 并增加了栈使用量统计。
 
 当前 `src/main.rs` 是上述版本的集大成者：吸收了兼容性修复、统一了跨平台实现、新增了优先级调度和动态跟踪功能。

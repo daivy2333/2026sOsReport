@@ -248,3 +248,114 @@ pub fn main() {
 
     runtime.run();
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── find_highest_priority_ready ────────────────────────────────────────
+
+    #[test]
+    fn test_pick_highest_priority_among_ready() {
+        let mut rt = Runtime::new();
+        rt.threads[1].state = State::Ready;
+        rt.threads[1].priority = 0;
+        rt.threads[2].state = State::Ready;
+        rt.threads[2].priority = 2;
+        rt.threads[3].state = State::Ready;
+        rt.threads[3].priority = 1;
+
+        assert_eq!(rt.find_highest_priority_ready(), Some(2));
+    }
+
+    #[test]
+    fn test_pick_highest_priority_all_equal() {
+        let mut rt = Runtime::new();
+        for i in 1..4 {
+            rt.threads[i].state = State::Ready;
+            rt.threads[i].priority = 0;
+        }
+        let result = rt.find_highest_priority_ready();
+        assert!(result.is_some_and(|id| (1..=3).contains(&id)));
+    }
+
+    #[test]
+    fn test_no_ready_threads_returns_none() {
+        let rt = Runtime::new();
+        assert_eq!(rt.find_highest_priority_ready(), None);
+    }
+
+    #[test]
+    fn test_running_thread_not_selected() {
+        let mut rt = Runtime::new();
+        rt.threads[0].priority = 255;
+        rt.threads[1].state = State::Ready;
+        rt.threads[1].priority = 1;
+
+        assert_eq!(rt.find_highest_priority_ready(), Some(1));
+    }
+
+    // ── spawn / spawn_with_priority ────────────────────────────────────────
+
+    #[test]
+    fn test_spawn_sets_priority_and_ready_state() {
+        let mut rt = Runtime::new();
+        rt.init();
+        rt.spawn_with_priority(|| {}, 7);
+
+        assert_eq!(rt.threads[1].priority, 7);
+        assert_eq!(rt.threads[1].state, State::Ready);
+    }
+
+    #[test]
+    fn test_spawn_defaults_to_priority_zero() {
+        let mut rt = Runtime::new();
+        rt.init();
+        rt.spawn(|| {});
+
+        assert_eq!(rt.threads[1].priority, 0);
+        assert_eq!(rt.threads[1].state, State::Ready);
+    }
+
+    #[test]
+    #[should_panic(expected = "no available thread")]
+    fn test_spawn_exhausted_threads_panics() {
+        let mut rt = Runtime::new();
+        rt.init();
+        for _ in 1..MAX_THREADS {
+            rt.spawn(|| {});
+        }
+        rt.spawn(|| {});
+    }
+
+    // ── initial state ──────────────────────────────────────────────────────
+
+    #[test]
+    fn test_runtime_initial_state() {
+        let rt = Runtime::new();
+        assert_eq!(rt.threads[0].state, State::Running);
+        assert_eq!(rt.threads[0].priority, 0);
+        assert_eq!(rt.current, 0);
+        for i in 1..MAX_THREADS {
+            assert_eq!(rt.threads[i].state, State::Available, "thread {i}");
+            assert_eq!(rt.threads[i].priority, 0);
+        }
+    }
+
+    // ── runtime construction ───────────────────────────────────────────────
+
+    #[test]
+    fn test_runtime_has_correct_number_of_threads() {
+        let rt = Runtime::new();
+        assert_eq!(rt.threads.len(), MAX_THREADS);
+    }
+
+    #[test]
+    fn test_new_thread_builder_sets_available() {
+        let t = Thread::new(5);
+        assert_eq!(t.id, 5);
+        assert_eq!(t.state, State::Available);
+        assert_eq!(t.priority, 0);
+        assert_eq!(t.stack.len(), DEFAULT_STACK_SIZE);
+    }
+}

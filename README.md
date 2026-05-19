@@ -26,6 +26,7 @@
 │   └── 任务二/             # 第二阶段：用户态线程和协程
 │       ├── green-thread/          # 绿色线程实现 + 优先级扩展
 │       │   ├── src/               # 源码（支持 x86-64 / Win64 / RISC-V 64）
+│       │   ├── tests/             # 优先级调度集成测试
 │       │   ├── priority-extension.md
 │       │   └── README.md
 │       ├── docs/                  # 学习文档
