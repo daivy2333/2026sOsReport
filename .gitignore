@@ -1,2 +1,12 @@
-# Rust build output
-产出/任务一/爬虫任务/crawler_rs/target/
+# Rust build output (matches target/ at any level)
+target/
+
+# IDE & editor files (optional)
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS junk
+.DS_Store
+Thumbs.db
