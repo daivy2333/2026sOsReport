@@ -1,33 +1,8 @@
-use std::cmp::Ordering;
-use std::collections::BinaryHeap;
 use std::path::Path;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicUsize, Ordering as AtomicOrdering};
 use std::time::Instant;
 
-use tokio::sync::Notify;
-
-struct PriorityTask {
-    priority: u8,
-    school_name: String,
-}
-
-impl Eq for PriorityTask {}
-impl PartialEq for PriorityTask {
-    fn eq(&self, other: &Self) -> bool {
-        self.priority == other.priority
-    }
-}
-impl PartialOrd for PriorityTask {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-impl Ord for PriorityTask {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.priority.cmp(&other.priority)
-    }
-}
+use tokio::sync::Semaphore;
 
 fn process_task_sync(
     school_name: &str,
@@ -88,65 +63,54 @@ async fn run_tokio_async(
     base_priority: u8,
 ) -> Vec<(String, f64, usize, bool)> {
     let batch_size = SCHOOLS.len() / num_batches;
-    let mut heap = BinaryHeap::new();
+
+    let mut task_queues: [Vec<String>; 3] = [const { Vec::new() }, const { Vec::new() }, const { Vec::new() }];
+
     for (i, school) in SCHOOLS.iter().enumerate() {
-        let priority = if i < batch_size {
+        let raw_prio = if i < batch_size {
             base_priority
         } else if i < 2 * batch_size {
             base_priority.saturating_sub(1)
         } else {
             base_priority.saturating_sub(2)
         };
-        heap.push(PriorityTask {
-            priority,
-            school_name: school.name.to_string(),
-        });
+        task_queues[raw_prio as usize].push(school.name.to_string());
     }
 
-    let notify = Arc::new(Notify::new());
+    let semaphore = Arc::new(Semaphore::new(concurrency));
     let results = Arc::new(tokio::sync::Mutex::new(Vec::new()));
-    let active = Arc::new(AtomicUsize::new(0));
+    let mut handles = Vec::new();
 
-    loop {
-        if active.load(AtomicOrdering::Acquire) >= concurrency {
-            notify.notified().await;
-            continue;
+    for prio_level in (0..=2).rev() {
+        for school_name in task_queues[prio_level].drain(..) {
+            let permit = semaphore.clone().acquire_owned().await.unwrap();
+            let cache = cache_dir.to_path_buf();
+            let res = results.clone();
+            let cpu = cpu_repeat;
+            let io = io_repeat;
+
+            let handle = tokio::spawn(async move {
+                let _permit = permit;
+
+                let (name, latency, len, success) =
+                    process_task_sync(&school_name, &cache, cpu, io);
+
+                let prio_label = match prio_level {
+                    2 => "2",
+                    1 => "1",
+                    _ => "0",
+                };
+                println!("[PRIO={}] {} done: {:.1}ms success={} len={}",
+                    prio_label, name, latency, success, len);
+
+                res.lock().await.push((name, latency, len, success));
+            });
+            handles.push(handle);
         }
+    }
 
-        match heap.pop() {
-            Some(task) => {
-                active.fetch_add(1, AtomicOrdering::Release);
-                let cache = cache_dir.to_path_buf();
-                let res = results.clone();
-                let ntf = notify.clone();
-                let act = active.clone();
-                let cpu = cpu_repeat;
-                let io = io_repeat;
-
-                tokio::spawn(async move {
-                    let (name, latency, len, success) =
-                        process_task_sync(&task.school_name, &cache, cpu, io);
-                    let prio_label = if task.priority == base_priority {
-                        "2"
-                    } else if task.priority == base_priority.saturating_sub(1) {
-                        "1"
-                    } else {
-                        "0"
-                    };
-                    println!("[PRIO={}] {} done: {:.1}ms success={} len={}",
-                        prio_label, name, latency, success, len);
-                    res.lock().await.push((name, latency, len, success));
-                    act.fetch_sub(1, AtomicOrdering::Release);
-                    ntf.notify_one();
-                });
-            }
-            None => {
-                if active.load(AtomicOrdering::Acquire) == 0 {
-                    break;
-                }
-                notify.notified().await;
-            }
-        }
+    for handle in handles {
+        handle.await.unwrap();
     }
 
     Arc::try_unwrap(results).unwrap().into_inner()
