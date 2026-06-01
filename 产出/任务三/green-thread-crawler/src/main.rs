@@ -3,6 +3,7 @@ use std::time::Instant;
 
 mod schools;
 mod tokio_scheduler;
+mod memory;
 
 #[cfg_attr(target_os = "windows", path = "win64.rs")]
 #[cfg_attr(all(target_os = "linux", not(target_arch = "riscv64")), path = "linux64.rs")]
@@ -18,7 +19,7 @@ struct CrawlRecord {
     success: bool,
 }
 
-const DEFAULT_STACK_SIZE: usize = 1024 * 1024 * 2;
+pub(crate) const DEFAULT_STACK_SIZE: usize = 1024 * 1024 * 2;
 const MAX_THREADS: usize = 10;
 static mut RUNTIME: usize = 0;
 static mut G_SCHOOLS_NAMES: [&str; 33] = [""; 33];
@@ -524,6 +525,7 @@ pub fn main() {
     let mut report_path = String::new();
     let mut scheduler = String::from("green-thread");
     let mut concurrency: usize = 10;
+    let mut measure_memory: bool = false;
 
     let mut i = 1;
     while i < args.len() {
@@ -570,9 +572,24 @@ pub fn main() {
                 i += 1;
                 concurrency = args.get(i).and_then(|s| s.parse().ok()).unwrap_or(10).max(1);
             }
+            "--measure-memory" => {
+                measure_memory = true;
+            }
             _ => {}
         }
         i += 1;
+    }
+
+    if measure_memory {
+        let mstr = match mode {
+            SchedulerMode::HighestPriorityFirst => "priority",
+            SchedulerMode::RoundRobin => "roundrobin",
+        };
+        let default_report = format!("memory_{}_{}.md", scheduler, mstr);
+        let rp = if report_path.is_empty() { default_report } else { report_path.clone() };
+        let output = memory::run_memory_benchmark(&scheduler, mode, base_priority, &rp);
+        print!("{}", output);
+        return;
     }
 
     let mode_name = match mode {
