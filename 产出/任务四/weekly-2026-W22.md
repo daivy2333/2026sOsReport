@@ -90,7 +90,29 @@ kernel 日志 :  ax_println! → Console polling TX（与 Async 共存）
 
 ---
 
-## 六、下周计划
+## 六、代码更改索引
+
+### Q7：用户态性能修复
+
+| 编号 | 变更说明 | 文件 |
+|------|----------|------|
+| O42 | yield storm 修复：Manual→External + 独立 tty-reader | [`ldisc.rs`](https://github.com/daivy2333/StarryOS/blob/asyncuart-dev/kernel/src/pseudofs/dev/tty/terminal/ldisc.rs#L65) · [`ntty_async.rs`](https://github.com/daivy2333/StarryOS/blob/asyncuart-dev/kernel/src/drivers/ntty_async.rs) |
+| O43 | FIONBIO 三入口传播：Tty 添加 AtomicBool | [`tty/mod.rs`](https://github.com/daivy2333/StarryOS/blob/asyncuart-dev/kernel/src/pseudofs/dev/tty/mod.rs#L43) · [`ldisc.rs`](https://github.com/daivy2333/StarryOS/blob/asyncuart-dev/kernel/src/pseudofs/dev/tty/terminal/ldisc.rs#L220) |
+| O44 | benchmark 修正：TX 改测 /dev/console + tcdrain | [`benchmark.c`](https://github.com/daivy2333/StarryOS/blob/asyncuart-dev/tests/benchmark.c#L36) |
+| O45 | DRAIN_WAKER + 三段式 tcdrain | [`isr.rs`](https://github.com/daivy2333/StarryOS/blob/asyncuart-dev/kernel/src/drivers/isr.rs#L9) |
+
+### P0：OpenSpec 文档体系
+
+| 变更说明 | 路径 |
+|----------|------|
+| 5 份源文件迁移（.bak 留底） | [`.claude/docs/*.md.bak`](https://github.com/daivy2333/StarryOS/tree/asyncuart-dev/.claude/docs) |
+| 4 个 spec 域 | [`openspec/specs/`](https://github.com/daivy2333/StarryOS/tree/asyncuart-dev/openspec/specs) |
+| rules 整合至 CLAUDE.md | [`CLAUDE.md`](https://github.com/daivy2333/StarryOS/blob/asyncuart-dev/CLAUDE.md) |
+| rules 墓碑归档 | [`archive/rules-domain-2026-06-03/`](https://github.com/daivy2333/StarryOS/tree/asyncuart-dev/openspec/changes/archive/rules-domain-2026-06-03) |
+
+---
+
+## 七、下周计划
 
 1. **Q6 真板验证**（跟踪）：VisionFive2 UART 时钟适配、真实 FIFO 深度验证、DMA 通道发现、高速波特率支持——受硬件到位时间约束。
 2. **Q8 启动准备**（O46.1~O46.4）：pipe 改造为 AtomicWaker 静态分发，预期唤醒延迟 ~200ns → ~50ns。
@@ -99,7 +121,7 @@ kernel 日志 :  ax_println! → Console polling TX（与 Async 共存）
 
 ---
 
-## 七、风险与展望
+## 八、风险与展望
 
 - **硬件依赖**：Q6 完全受制于 VisionFive2 板卡到位时间，是 Q9 启动的硬性门控。
 - **理论性能上限**：115200 bps ≈ 11.52 KB/s，Async 与 Console 在吞吐量上无法拉开差距，CPU 效率是核心差异化指标。

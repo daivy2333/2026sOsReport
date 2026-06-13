@@ -158,7 +158,56 @@ Q0  Q1  Q2  Q3  Q4  Q5  Q5.1  Q5.2  Q7  P0  Q8  Q10 Q9  Q11   Q6
 
 ---
 
-## 六、下周计划
+## 六、代码更改索引
+
+### Q8：驱动引擎打磨
+
+| 编号 | 变更说明 | 文件 |
+|------|----------|------|
+| Q8.1 | NAPI 退出修复：零字节时重置 consecutive + enable_rx_intr | [`async_driver.rs`](https://github.com/daivy2333/StarryOS/blob/asyncuart-dev/kernel/src/drivers/async_driver.rs#L19) |
+| Q8.2 | ISR 无锁化：read_isr_unlocked 消除 SpinNoIrq | [`uart_init.rs`](https://github.com/daivy2333/StarryOS/blob/asyncuart-dev/kernel/src/drivers/uart_init.rs#L72) · [`isr.rs`](https://github.com/daivy2333/StarryOS/blob/asyncuart-dev/kernel/src/drivers/isr.rs#L9) |
+| Q8.3 | IER 写路径规范化：uart_16550 添加 set_ier() | [`uart_16550/src/lib.rs`](https://github.com/daivy2333/uart_16550/blob/dev/optimize/src/lib.rs#L298) · [`uart_init.rs`](https://github.com/daivy2333/StarryOS/blob/asyncuart-dev/kernel/src/drivers/uart_init.rs#L106) |
+| Q8.4~5 | waker 去重 + DRAIN_WAKER 条件唤醒 | [`async_driver.rs`](https://github.com/daivy2333/StarryOS/blob/asyncuart-dev/kernel/src/drivers/async_driver.rs#L19) · [`isr.rs`](https://github.com/daivy2333/StarryOS/blob/asyncuart-dev/kernel/src/drivers/isr.rs#L9) |
+| Q8.6 | signalfd PollSet→AtomicWaker | [`signalfd.rs`](https://github.com/daivy2333/StarryOS/blob/asyncuart-dev/kernel/src/file/signalfd.rs#L83) |
+| Q8.7 | eventfd PollSet→AtomicWaker | [`event.rs`](https://github.com/daivy2333/StarryOS/blob/asyncuart-dev/kernel/src/file/event.rs#L14) |
+| Q8.8 | pipe PollSet→AtomicWaker | [`pipe.rs`](https://github.com/daivy2333/StarryOS/blob/asyncuart-dev/kernel/src/file/pipe.rs#L40) |
+| Q8.9 | pidfd PollSet→AtomicWaker（Arc 重构） | [`pidfd.rs`](https://github.com/daivy2333/StarryOS/blob/asyncuart-dev/kernel/src/file/pidfd.rs#L19) |
+
+### Q10：数据路径优化
+
+| 编号 | 变更说明 | 文件 |
+|------|----------|------|
+| Q10.1 | SimpleReader::poll 逐字节→批量 push_slice | [`ldisc.rs`](https://github.com/daivy2333/StarryOS/blob/asyncuart-dev/kernel/src/pseudofs/dev/tty/terminal/ldisc.rs#L189) |
+| Q10.2 | ldisc BUF_SIZE 80→256 | [`ldisc.rs`](https://github.com/daivy2333/StarryOS/blob/asyncuart-dev/kernel/src/pseudofs/dev/tty/terminal/ldisc.rs#L220) |
+| Q10.3 | LineDiscipline::read/drain_input 改为 &self | [`ldisc.rs`](https://github.com/daivy2333/StarryOS/blob/asyncuart-dev/kernel/src/pseudofs/dev/tty/terminal/ldisc.rs#L220) |
+
+### Q9：VTIME 读超时
+
+| 变更说明 | 文件 |
+|----------|------|
+| VTIME>0 替换 todo!() → timeout(dur, poll_io) | [`ldisc.rs`](https://github.com/daivy2333/StarryOS/blob/asyncuart-dev/kernel/src/pseudofs/dev/tty/terminal/ldisc.rs#L220) |
+
+### Q11：内核通用质量优化
+
+| 编号 | 变更说明 | 文件 |
+|------|----------|------|
+| Q11.1 | tty 3 处 .unwrap() → AxError 传播 | [`tty/mod.rs`](https://github.com/daivy2333/StarryOS/blob/asyncuart-dev/kernel/src/pseudofs/dev/tty/mod.rs#L43) |
+| Q11.2 | mm/access 批量页验证（二进制搜索） | [`mm/access.rs`](https://github.com/daivy2333/StarryOS/blob/asyncuart-dev/kernel/src/mm/access.rs) |
+| Q11.3 | sendfile vec→栈数组 | [`io.rs`](https://github.com/daivy2333/StarryOS/blob/asyncuart-dev/kernel/src/syscall/fs/io.rs#L294) |
+| Q11.4 | close_range UNSHARE 范围优化 | [`fd_ops.rs`](https://github.com/daivy2333/StarryOS/blob/asyncuart-dev/kernel/src/syscall/fs/fd_ops.rs#L158) |
+
+### 文档体系重构
+
+| 变更说明 | 路径 |
+|----------|------|
+| 架构文档重写（4 大模块 + GitHub 链接） | [`architecture/spec.md`](https://github.com/daivy2333/StarryOS/blob/asyncuart-dev/openspec/specs/architecture/spec.md) |
+| 性能对比文档更新 | [`uart-performance-comparison.md`](https://github.com/daivy2333/StarryOS/blob/asyncuart-dev/docs/uart-performance-comparison.md) |
+| 性能测试报告 v3.0 | [`benchmark-report-async.md`](https://github.com/daivy2333/StarryOS/blob/asyncuart-dev/docs/benchmark-report-async.md) |
+| 状态快照 / 任务 / 优化同步 | [`SNAPSHOT.md`](https://github.com/daivy2333/StarryOS/blob/asyncuart-dev/.claude/docs/SNAPSHOT.md) · [`tasks.md`](https://github.com/daivy2333/StarryOS/blob/asyncuart-dev/.claude/docs/tasks.md) · [`optimization/spec.md`](https://github.com/daivy2333/StarryOS/blob/asyncuart-dev/openspec/specs/optimization/spec.md) |
+
+---
+
+## 七、下周计划
 
 1. **bench 分支手动测试**：在 `feat/uart-async-bench` 分支运行完整 benchmark，验证 Q8~Q11 无回归。
 2. **Q6 硬件跟踪**：VisionFive2 板卡到位时启动真板验证（UART 时钟适配 + FIFO 深度 + DMA 评估）。
@@ -166,7 +215,7 @@ Q0  Q1  Q2  Q3  Q4  Q5  Q5.1  Q5.2  Q7  P0  Q8  Q10 Q9  Q11   Q6
 
 ---
 
-## 七、风险与展望
+## 八、风险与展望
 
 - **硬件瓶颈**：所有优化均在 QEMU 验证，真板时序可能暴露新的性能特征（如 NAPI 阈值需调优）。
 - **pidfd AtomicWaker 单槽假设**：async 模型下始终单 waiter，若未来支持多线程需评估 `WakerList` 方案。
